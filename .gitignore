@@ -1,0 +1,8 @@
+/venv
+/.vscode
+/__pycache__
+/models
+/frontEnd/node_modules
+/frontEnd/dist
+/backEnd/.vscode
+script.sh   
