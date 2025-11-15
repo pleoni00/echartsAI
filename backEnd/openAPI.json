@@ -227,7 +227,7 @@
           "name": {
             "type": "string"
           },
-          "tag": {
+          "kind": {
             "type": "string"
           }
         }

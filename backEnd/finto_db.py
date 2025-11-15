@@ -6,21 +6,21 @@ CORS(app)
 
 # Database in memoria unificato
 pets = [
-    {"id": 1, "name": "Fido", "tag": "dog", "weight": 15.5, "foodWeightGrams": 500},
-    {"id": 2, "name": "Whiskers", "tag": "cat", "weight": 4.2, "foodWeightGrams": 150},
-    {"id": 3, "name": "Tweety", "tag": "bird", "weight": 0.8, "foodWeightGrams": 30},
-    {"id": 4, "name": "Rex", "tag": "dog", "weight": 28.3, "foodWeightGrams": 800},
-    {"id": 5, "name": "Luna", "tag": "cat", "weight": 3.8, "foodWeightGrams": 120},
-    {"id": 6, "name": "Goldie", "tag": "fish", "weight": 0.05, "foodWeightGrams": 5},
-    {"id": 7, "name": "Buddy", "tag": "dog", "weight": 22.1, "foodWeightGrams": 650},
-    {"id": 8, "name": "Mittens", "tag": "cat", "weight": 5.1, "foodWeightGrams": 180},
-    {"id": 9, "name": "Polly", "tag": "bird", "weight": 1.2, "foodWeightGrams": 45},
-    {"id": 10, "name": "Max", "tag": "dog", "weight": 18.7, "foodWeightGrams": 550},
-    {"id": 11, "name": "Shadow", "tag": "cat", "weight": 4.5, "foodWeightGrams": 160},
-    {"id": 12, "name": "Nemo", "tag": "fish", "weight": 0.03, "foodWeightGrams": 3},
-    {"id": 13, "name": "Bella", "tag": "dog", "weight": 12.4, "foodWeightGrams": 450},
-    {"id": 14, "name": "Oliver", "tag": "cat", "weight": 4.9, "foodWeightGrams": 175},
-    {"id": 15, "name": "Charlie", "tag": "hamster", "weight": 0.15, "foodWeightGrams": 20}
+    {"id": 1, "name": "Fido", "kind": "dog", "weight": 15.5, "foodWeightGrams": 500},
+    {"id": 2, "name": "Whiskers", "kind": "cat", "weight": 4.2, "foodWeightGrams": 150},
+    {"id": 3, "name": "Tweety", "kind": "bird", "weight": 0.8, "foodWeightGrams": 30},
+    {"id": 4, "name": "Rex", "kind": "dog", "weight": 28.3, "foodWeightGrams": 800},
+    {"id": 5, "name": "Luna", "kind": "cat", "weight": 3.8, "foodWeightGrams": 120},
+    {"id": 6, "name": "Goldie", "kind": "fish", "weight": 0.05, "foodWeightGrams": 5},
+    {"id": 7, "name": "Buddy", "kind": "dog", "weight": 22.1, "foodWeightGrams": 650},
+    {"id": 8, "name": "Mittens", "kind": "cat", "weight": 5.1, "foodWeightGrams": 180},
+    {"id": 9, "name": "Polly", "kind": "bird", "weight": 1.2, "foodWeightGrams": 45},
+    {"id": 10, "name": "Max", "kind": "dog", "weight": 18.7, "foodWeightGrams": 550},
+    {"id": 11, "name": "Shadow", "kind": "cat", "weight": 4.5, "foodWeightGrams": 160},
+    {"id": 12, "name": "Nemo", "kind": "fish", "weight": 0.03, "foodWeightGrams": 3},
+    {"id": 13, "name": "Bella", "kind": "dog", "weight": 12.4, "foodWeightGrams": 450},
+    {"id": 14, "name": "Oliver", "kind": "cat", "weight": 4.9, "foodWeightGrams": 175},
+    {"id": 15, "name": "Charlie", "kind": "hamster", "weight": 0.15, "foodWeightGrams": 20}
 ]
 
 next_id = 16
@@ -48,7 +48,7 @@ def create_pet():
     new_pet = {
         "id": next_id,
         "name": data['name'],
-        "tag": data.get('tag', ''),
+        "kind": data.get('kind', ''),
         "weight": data.get('weight', 0.0),
         "foodWeightGrams": data.get('foodWeightGrams', 0)
     }
