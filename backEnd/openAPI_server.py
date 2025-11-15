@@ -32,7 +32,6 @@ def openapi_to_functions(openapi_url):
             function_name = spec.get("operationId", "")
             desc = spec.get("description") or spec.get("summary", "")
             schema = {"type": "object", "properties": {}}
-            returns = {"type": "object", "properties": {}}
             req_body = (
                 spec.get("requestBody", {})
                 .get("content", {})
@@ -41,18 +40,6 @@ def openapi_to_functions(openapi_url):
             )
             if req_body:
                 schema["properties"]["requestBody"] = resolve_ref(req_body,schemas)
-            
-            returns_item = (
-                spec.get("responses",{})
-                    .get("200", {})
-                    .get("content", {})
-                    .get("application/json", {})
-                    .get("schema", {})
-            )
-            if returns:
-                returns["properties"] = resolve_ref(returns_item,schemas)
-            
-
             params = spec.get("parameters", [])
             if params:
                 param_properties = {
@@ -71,8 +58,7 @@ def openapi_to_functions(openapi_url):
                     "function": {
                         "name": function_name, 
                         "description": desc, 
-                        "parameters": schema,
-                        "returns": returns
+                        "parameters": schema
                     }
                 }
             )
