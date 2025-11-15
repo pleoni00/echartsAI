@@ -1,3 +1,4 @@
+import re
 import json
 import requests
 import subprocess
@@ -5,10 +6,11 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import time
 import select
 
+GEMINI_API_KEY = ""
+
 class Server(HTTPServer):
     processes = []
     tools = []
-    id = 0
     dict_tools_server = []
 
     def __init__(self, server_address, RequestHandlerClass, command=None):
@@ -32,7 +34,6 @@ class Server(HTTPServer):
 
             request = {
                 'jsonrpc': '2.0',
-                # 'id': self.get_id(),
                 'method': 'tools/list'
             }
             time.sleep(3)
@@ -82,6 +83,81 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         super().end_headers()
+
+    def call_tool(self, tool_call):
+        list_idx_server = [i for i, sottolista in enumerate(self.server.dict_tools_server) if tool_call["function"]["name"] in sottolista]
+        if len(list_idx_server)==0:
+            return None
+        mcp_request = {
+            'jsonrpc': '2.0',
+            'id': tool_call["id"],
+            'method': 'tools/call',
+            'params': {
+                'name': tool_call["function"]["name"],
+                'arguments': json.loads(tool_call["function"]["arguments"])
+            }
+        }
+        idx_server = list_idx_server[0]
+        self.server.mcp_client[idx_server].stdin.write(json.dumps(mcp_request) + '\n')
+        self.server.mcp_client[idx_server].stdin.flush()
+        
+        return self.server.mcp_client[idx_server].stdout.readline().strip()
+    
+    def process_response(self, llm_response):
+        new_response = {}
+
+        content = re.sub(r'```\s*([\s\S]*?)\s*```', r'\1', llm_response.get("content"))
+
+        data_spec_match = re.search(
+            r'DATA_SPEC:\s*\n(.*?)\n(?:WORKER_CODE:|$)',
+            content,
+            re.DOTALL
+        )
+        new_response["called_tools"] = json.loads(data_spec_match.group(1).strip())
+
+        worker_code_match = re.search(
+            r'WORKER_CODE:\s*\n(.*?)\n(?:ECHARTS_OPTION:|$)',
+            content,
+            re.DOTALL
+        )
+        new_response["ww_code"] = worker_code_match.group(1).strip()
+
+        echarts_option_match = re.search(
+            r'ECHARTS_OPTION:\s*\n(.*?)(?:\n---|\Z)',
+            content,
+            re.DOTALL
+        )
+        new_response["option"] = echarts_option_match.group(1).strip()
+
+        print(new_response)
+        
+        return new_response
+
+    
+    def call_final_tool(self, response):
+        called_tools = response["called_tools"]
+        
+        tool_results = []
+        for tool in called_tools:
+            list_idx_server = [i for i, sottolista in enumerate(self.server.dict_tools_server) if tool.get("source") in sottolista]
+            if len(list_idx_server)==0:
+                return None
+            mcp_request = {
+                'jsonrpc': '2.0',
+                'method': 'tools/call',
+                'params': {
+                    'name': tool.get("source"),
+                    'arguments': tool.get("params",{})
+                }
+            }
+            idx_server = list_idx_server[0]
+            self.server.mcp_client[idx_server].stdin.write(json.dumps(mcp_request) + '\n')
+            self.server.mcp_client[idx_server].stdin.flush()
+            mcp_result = self.server.mcp_client[idx_server].stdout.readline().strip()
+            mcp_result = json.loads(json.loads(mcp_result)["result"]["content"][0]["text"])
+            tool_results.append(mcp_result)
+        response["data"] = tool_results
+        return response
     
     def do_OPTIONS(self):
         self.send_response(200)
@@ -99,10 +175,7 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
             return
         
         try:
-            # Inizia con i messaggi dell'utente
             conversation = user_messages.copy() if isinstance(user_messages, list) else [user_messages]
-            
-            # Loop per gestire multiple tool calls
             llm_response = self.redirect_llm(conversation)
 
             while llm_response.get("choices", [])[0].get("finish_reason") == "tool_calls":
@@ -111,54 +184,36 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
                 conversation.append({
                     'role': 'assistant',
                     'content': message.get('content'),
-                    'tool_calls': message.get('tool_calls'),
-                    "tool_choice": "auto"
+                    'tool_calls': message.get('tool_calls')
                 })
 
                 inner_conversation = []
                 for tool_call in message.get("tool_calls", []):
-                    list_idx_server = [i for i, sottolista in enumerate(self.server.dict_tools_server) if tool_call["function"]["name"] in sottolista]
-                    if len(list_idx_server)==0:
+                    response_line = self.call_tool(tool_call)
+
+                    if response_line is None:
                         inner_conversation = [{
                             'role': 'system',
                             'content': f"tool named {tool_call["function"]["name"]} doesn't exist"
                         }]
-                        break
-                    mcp_request = {
-                        'jsonrpc': '2.0',
-                        'id': tool_call["id"],
-                        'method': 'tools/call',
-                        'params': {
+                    else:
+                        inner_conversation.append({
+                            'tool_call_id': tool_call["id"],
+                            'role': 'tool',
                             'name': tool_call["function"]["name"],
-                            'arguments': json.loads(tool_call["function"]["arguments"])
-                        }
-                    }
-                    idx_server = [i for i, sottolista in enumerate(self.server.dict_tools_server) if tool_call["function"]["name"] in sottolista][0]
-                    self.server.mcp_client[idx_server].stdin.write(json.dumps(mcp_request) + '\n')
-                    self.server.mcp_client[idx_server].stdin.flush()
-                    
-                    response_line = self.server.mcp_client[idx_server].stdout.readline().strip()
-                    
-                    inner_conversation.append({
-                        'tool_call_id': tool_call["id"],
-                        'role': 'tool',
-                        'name': tool_call["function"]["name"],
-                        'content': response_line
-                    })
+                            'content': response_line
+                        })
                 conversation.extend(inner_conversation)
                 llm_response = self.redirect_llm(conversation)
             
             final_message = llm_response.get("choices", [])[0].get("message")
-            conversation.append(final_message)
+            processed_response = self.process_response(final_message)
+            processed_response = self.call_final_tool(processed_response)
 
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers() 
-            print(conversation)
-            self.wfile.write(json.dumps({
-                'messages': conversation,
-                # 'response': final_message.get('content')
-            }).encode("utf-8"))
+            self.wfile.write(json.dumps(processed_response).encode("utf-8"))
             
         except Exception as e:
             import traceback
